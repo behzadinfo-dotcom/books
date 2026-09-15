@@ -54,7 +54,7 @@ PUNCT = "«»()[]{}.,،؟?!:؛-–—…·•\"'\\/‹›_|+=\r\n\t "
 
 
 def normalize(s: str) -> str:
-    s = unicodedata.normalize("NFKC", s or "")
+    s = unicodedata.normalize("NFKC", s or "").lower()
     table = str.maketrans({
         "ك": "ک", "ي": "ی", "ى": "ی", "ة": "ه", "ۀ": "ه",
         "ؤ": "و", "ئ": "ی", "أ": "ا", "إ": "ا", "آ": "ا",
@@ -128,34 +128,42 @@ def split_by_plan(code, pdf_path):
     os.makedirs(folder, exist_ok=True)
 
     sections = entry["sections"]
-    starts, diag = [], []
+    found, diag = [], []
     cursor = 0
-    for idx, sec in enumerate(sections, 1):
+    for sec in sections:
         if sec.get("from_start"):
-            starts.append(0)
             diag.append({"file": sec["file"], "start": 1,
                          "note": "from_start"})
+            found.append((sec, 0, len(diag) - 1))
             continue
         anchors = sec.get("anchors") or []
         if not anchors:
-            return {"status": f"section-{idx}-has-no-anchors",
-                    "outputs": [], "diag": diag}
+            diag.append({"file": sec["file"], "skipped": True,
+                         "reason": "no-anchors"})
+            continue
         p, tier, ncand, tried = find_anchor(full, big, anchors, cursor)
         if p is None:
-            return {"status": f"anchor-not-found: section {idx} {sec['file']}",
-                    "outputs": [], "diag": diag, "tried": tried}
-        starts.append(p)
+            diag.append({"file": sec["file"], "skipped": True,
+                         "reason": "anchor-not-found", "tried": tried})
+            continue
         cursor = p + 1
         diag.append({"file": sec["file"], "start": p + 1, "tier": tier,
                      "candidates": ncand, "tried": tried})
+        found.append((sec, p, len(diag) - 1))
+
+    if not found:
+        return {"status": "nothing-found", "outputs": [], "diag": diag}
 
     reader = PdfReader(pdf_path)
     assert len(reader.pages) == n
     outputs = []
-    for idx, sec in enumerate(sections, 1):
-        s = starts[idx - 1]
-        e = (starts[idx] - 1) if idx < len(sections) and starts[idx] > s else (
-            starts[idx] if idx < len(sections) else n - 1)
+    for idx, (sec, s, dpos) in enumerate(found, 1):
+        if idx < len(found) and found[idx][1] > s:
+            e = found[idx][1] - 1
+        elif idx < len(found):
+            e = found[idx][1]
+        else:
+            e = n - 1
         e = max(e, s)
         w = PdfWriter()
         for p in range(s, e + 1):
@@ -166,8 +174,11 @@ def split_by_plan(code, pdf_path):
             w.write(f)
         outputs.append({"file": fname, "pages": [s + 1, e + 1],
                         "n_pages": e - s + 1})
-        diag[idx - 1]["pages"] = [s + 1, e + 1]
-    return {"status": "ok", "outputs": outputs, "diag": diag}
+        diag[dpos]["pages"] = [s + 1, e + 1]
+    n_skip = sum(1 for d in diag if d.get("skipped"))
+    status = "ok-with-skips" if n_skip else "ok"
+    return {"status": status, "outputs": outputs, "diag": diag,
+            "skipped": n_skip}
 
 
 def official_sections(code):
