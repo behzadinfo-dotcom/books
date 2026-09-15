@@ -1,0 +1,3 @@
+_source/
+*.tmp
+__pycache__/
