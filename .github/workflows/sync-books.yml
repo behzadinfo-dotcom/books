@@ -6,7 +6,7 @@ on:
       links_file:
         description: 'مسیر فایل لینک‌ها در ریپو'
         required: true
-        default: 'https://github.com/behzadinfo-dotcom/books/blob/main/.github/workflows/arvan%20books%20links.txt'
+        default: 'arvan books links.txt'
       dest_folder:
         description: 'پوشه مقصد در ریپو'
         required: true
