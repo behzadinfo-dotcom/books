@@ -1,8 +1,0 @@
-{
-  "endpoint": "https://fra.cloud.appwrite.io/v1",
-  "project_id": "6a9d59e3002751cc3ea8",
-  "project_name": "همیار من",
-  "api_key": "standard_3e7b1708ccbd4165c42af6f3570f90ac84aa5f3b2ad39ba06e7e3a4026d30a3e6940adbccac68e4441ab9c64f178af6bccadde6a6e90f46c598b95eb450b823a35f3bb507b102d922d482c83252664214c3efb664723e513bae9e323b3a219eb6ec557a043a3b8ec23bcf5ad658a04822e1d39cdb08c6ca23febd8f29214abab",
-  "database_id": "ZahraDB",
-  "media_bucket_id": "6aa1eaae00303400117b"
-}
