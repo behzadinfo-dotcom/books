@@ -1,0 +1,88 @@
+name: Sync books from Arvan
+
+on:
+  workflow_dispatch:
+    inputs:
+      links_file:
+        description: 'مسیر فایل لینک‌ها در ریپو'
+        required: true
+        default: 'links.txt'
+      dest_folder:
+        description: 'پوشه مقصد در ریپو'
+        required: true
+        default: 'Books-Full'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download and commit files
+        env:
+          LINKS_FILE: ${{ inputs.links_file }}
+          DEST_FOLDER: ${{ inputs.dest_folder }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os
+          import time
+          from pathlib import Path
+
+          import requests
+
+          links_file = Path(os.environ["LINKS_FILE"])
+          dest_folder = Path(os.environ["DEST_FOLDER"])
+          dest_folder.mkdir(parents=True, exist_ok=True)
+
+          links = [ln.strip() for ln in links_file.read_text(encoding="utf-8").splitlines()
+                   if ln.strip() and not ln.strip().startswith("#")]
+          print(f"تعداد لینک: {len(links)}")
+
+          for i, url in enumerate(links, 1):
+              fname = url.rstrip("/").split("/")[-1]
+              out = dest_folder / fname
+              if out.exists() and out.stat().st_size > 0:
+                  print(f"[{i}/{len(links)}] {fname} (قبلاً موجود) - رد")
+                  continue
+              print(f"[{i}/{len(links)}] {fname} ...")
+              for attempt in range(1, 4):
+                  try:
+                      with requests.get(url, stream=True, timeout=(30, 600)) as r:
+                          r.raise_for_status()
+                          with open(out, "wb") as f:
+                              for chunk in r.iter_content(chunk_size=1024*1024):
+                                  if chunk:
+                                      f.write(chunk)
+                      break
+                  except Exception as e:
+                      print(f"  تلاش {attempt} شکست خورد: {e}")
+                      if attempt < 3:
+                          time.sleep(2 ** attempt)
+                      else:
+                          raise
+          PY
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ inputs.dest_folder }}"
+          if git diff --cached --quiet; then
+            echo "تغییری نیست."
+          else
+            git commit -m "sync ${{ inputs.dest_folder }} from Arvan"
+            git push
+          fi
