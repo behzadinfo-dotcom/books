@@ -6,7 +6,7 @@ on:
       links_file:
         description: 'مسیر فایل لینک‌ها در ریپو'
         required: true
-        default: 'links.txt'
+        default: 'https://github.com/behzadinfo-dotcom/books/blob/main/.github/workflows/arvan%20books%20links.txt'
       dest_folder:
         description: 'پوشه مقصد در ریپو'
         required: true
@@ -30,11 +30,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install requests
+        run: pip install requests
+
       - name: Download and commit files
         env:
           LINKS_FILE: ${{ inputs.links_file }}
           DEST_FOLDER: ${{ inputs.dest_folder }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python - <<'PY'
           import os
